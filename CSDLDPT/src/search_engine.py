@@ -32,6 +32,7 @@ class AnimalSoundSearchEngine:
         self.file_index: dict[int, dict] = {}
         self.scaler_mean: Optional[np.ndarray] = None
         self.scaler_std: Optional[np.ndarray] = None
+        self.feature_weights: Optional[np.ndarray] = None
         self._loaded = False
 
     def load(
@@ -48,6 +49,7 @@ class AnimalSoundSearchEngine:
         scaler = np.load(scaler_path)
         self.scaler_mean = scaler['mean'].astype(np.float32)
         self.scaler_std = scaler['std'].astype(np.float32)
+        self.feature_weights = scaler['weights'].astype(np.float32) if 'weights' in scaler else None
         self._loaded = True
 
     def is_loaded(self) -> bool:
@@ -55,12 +57,14 @@ class AnimalSoundSearchEngine:
 
     def _prepare_query(self, query_vector: np.ndarray) -> np.ndarray:
         """
-        z-score scale → L2 normalize.
-        Dùng cùng scaler đã fit trên database để đảm bảo consistency.
+        z-score scale → apply weights → L2 normalize.
+        Dùng cùng scaler + weights đã fit trên database để đảm bảo consistency.
         """
         assert self.scaler_mean is not None and self.scaler_std is not None
         safe_std = np.where(self.scaler_std < 1e-8, 1.0, self.scaler_std)
         q = ((query_vector - self.scaler_mean) / safe_std).reshape(1, -1).astype(np.float32)
+        if self.feature_weights is not None:
+            q *= self.feature_weights
         faiss.normalize_L2(q)
         return q
 

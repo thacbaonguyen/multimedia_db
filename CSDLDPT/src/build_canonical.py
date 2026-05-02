@@ -23,6 +23,21 @@ SRC_DIR = os.path.dirname(__file__)
 sys.path.insert(0, SRC_DIR)
 
 from database import load_all_vectors, save_feature_scaler, FEATURE_DIM
+from feature import N_MFCC, N_MELS, N_CHROMA
+
+# ─────────────────────────────────────────────
+# Feature weighting: cân bằng ảnh hưởng giữa các nhóm đặc trưng
+# MFCC (26D) là đặc trưng phân biệt loài mạnh nhất nhưng chỉ chiếm 26/310
+# Mel (256D) chiếm 82.6% vector → dominate cosine distance nếu không cân bằng
+# ─────────────────────────────────────────────
+FEATURE_WEIGHTS = np.concatenate([
+    np.full(N_MFCC * 2, 3.0),     # MFCC 26D: ×3.0  (timbre, vocal tract)
+    np.full(N_MELS * 2, 1.0),     # Mel  256D: ×1.0  (energy distribution)
+    np.full(N_CHROMA * 2, 2.0),   # Chroma 24D: ×2.0 (pitch structure)
+    np.full(2, 2.0),              # Centroid 2D: ×2.0 (brightness)
+    np.full(2, 2.0),              # ZCR 2D: ×2.0 (voiced/unvoiced)
+]).astype(np.float32)
+assert len(FEATURE_WEIGHTS) == FEATURE_DIM, f"Weights mismatch: {len(FEATURE_WEIGHTS)} != {FEATURE_DIM}"
 
 PROJECT_ROOT = os.path.join(SRC_DIR, '..')
 FEATURES_DIR = os.path.join(PROJECT_ROOT, 'features')
@@ -67,20 +82,22 @@ def build_canonical(verbose: bool = True) -> None:
     if verbose:
         print(f"  Shape: {matrix.shape}")
 
-    # 3. Fit z-score scaler
+    # 3. Fit z-score scaler + save weights
     if verbose:
-        print("\n[3/5] Fitting z-score scaler...")
+        print("\n[3/5] Fitting z-score scaler + feature weights...")
     scaler_path = os.path.join(FEATURES_DIR, 'feature_scaler.npz')
-    mean, std = save_feature_scaler(matrix, scaler_path)
+    mean, std = save_feature_scaler(matrix, scaler_path, weights=FEATURE_WEIGHTS)
     if verbose:
         print(f"  Saved: {scaler_path}")
+        print(f"  Weights: MFCC×3.0, Mel×1.0, Chroma×2.0, Centroid×2.0, ZCR×2.0")
 
     # 4. Build Faiss index
     if verbose:
         print("\n[4/5] Building Faiss IndexFlatIP...")
-    # z-score scale
+    # z-score scale → apply weights → L2 normalize → Inner Product = Cosine
     safe_std = np.where(std < 1e-8, 1.0, std)
     scaled = ((matrix - mean) / safe_std).astype(np.float32)
+    scaled *= FEATURE_WEIGHTS  # <-- Feature weighting
     # L2 normalize → Inner Product = Cosine
     faiss.normalize_L2(scaled)
     index = faiss.IndexFlatIP(FEATURE_DIM)

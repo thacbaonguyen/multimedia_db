@@ -186,8 +186,12 @@ def truncate_all() -> None:
 # Feature vector operations
 # ─────────────────────────────────────────────
 
-def save_feature_scaler(matrix: np.ndarray, scaler_path: str = SCALER_PATH) -> tuple[np.ndarray, np.ndarray]:
-    """Fit và lưu z-score scaler cho từng chiều đặc trưng."""
+def save_feature_scaler(
+    matrix: np.ndarray,
+    scaler_path: str = SCALER_PATH,
+    weights: Optional[np.ndarray] = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Fit và lưu z-score scaler + optional feature weights."""
     os.makedirs(os.path.dirname(scaler_path), exist_ok=True)
     if matrix.size == 0:
         mean = np.zeros(FEATURE_DIM, dtype=np.float32)
@@ -196,16 +200,22 @@ def save_feature_scaler(matrix: np.ndarray, scaler_path: str = SCALER_PATH) -> t
         mean = matrix.mean(axis=0).astype(np.float32)
         std = matrix.std(axis=0).astype(np.float32)
         std = np.where(std < 1e-8, 1.0, std).astype(np.float32)
-    np.savez(scaler_path, mean=mean, std=std)
+    save_dict = {'mean': mean, 'std': std}
+    if weights is not None:
+        save_dict['weights'] = weights.astype(np.float32)
+    np.savez(scaler_path, **save_dict)
     return mean, std
 
 
-def load_feature_scaler(scaler_path: str = SCALER_PATH) -> tuple[Optional[np.ndarray], Optional[np.ndarray]]:
-    """Đọc scaler đã fit từ tập index."""
+def load_feature_scaler(scaler_path: str = SCALER_PATH) -> tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]]:
+    """Đọc scaler đã fit từ tập index. Returns (mean, std, weights)."""
     if not os.path.exists(scaler_path):
-        return None, None
+        return None, None, None
     data = np.load(scaler_path)
-    return data['mean'].astype(np.float32), data['std'].astype(np.float32)
+    mean = data['mean'].astype(np.float32)
+    std = data['std'].astype(np.float32)
+    weights = data['weights'].astype(np.float32) if 'weights' in data else None
+    return mean, std, weights
 
 
 def apply_feature_scaler(
