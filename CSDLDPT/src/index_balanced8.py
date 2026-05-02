@@ -153,7 +153,7 @@ def run(verbose: bool = True):
     print(f"  Database     : PostgreSQL")
     print(f"{'=' * 60}")
     print(f"\n  → Tiếp theo: python src/build_canonical.py")
-    print(f"  → Sau đó  : python src/train_classifier.py")
+    print(f"  → Đánh giá: python src/evaluate_feature_space.py")
 
 
 if __name__ == "__main__":

@@ -222,12 +222,16 @@ def apply_feature_scaler(
     matrix: np.ndarray,
     mean: Optional[np.ndarray],
     std: Optional[np.ndarray],
+    weights: Optional[np.ndarray] = None,
 ) -> np.ndarray:
-    """Chuẩn hóa z-score cho vector hoặc ma trận đặc trưng."""
+    """Chuẩn hóa z-score và optional feature weights cho vector/ma trận đặc trưng."""
     if mean is None or std is None:
         return matrix
     safe_std = np.where(std < 1e-8, 1.0, std)
-    return (matrix - mean) / safe_std
+    scaled = (matrix - mean) / safe_std
+    if weights is not None:
+        scaled = scaled * weights
+    return scaled
 
 
 def load_all_vectors(
@@ -253,10 +257,11 @@ def load_all_vectors(
 
     matrix = np.vstack(vecs).astype(np.float32) if vecs else np.zeros((0, FEATURE_DIM), dtype=np.float32)
     if scaled and len(vecs) > 0:
-        mean, std = load_feature_scaler(scaler_path)
+        mean, std, weights = load_feature_scaler(scaler_path)
         if mean is None:
             mean, std = save_feature_scaler(matrix, scaler_path)
-        matrix = apply_feature_scaler(matrix, mean, std).astype(np.float32)
+            weights = None
+        matrix = apply_feature_scaler(matrix, mean, std, weights).astype(np.float32)
     return ids, filenames, species_list, matrix
 
 

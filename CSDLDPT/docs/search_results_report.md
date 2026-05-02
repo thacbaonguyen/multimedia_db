@@ -8,7 +8,7 @@
 | Số loài | 8 (cat, cow, dog, frog, hen, monkey, rooster, sheep) |
 | Vector đặc trưng | 310D |
 | Phương pháp tìm kiếm | Pure Cosine Similarity (Faiss IndexFlatIP) |
-| Chuẩn hóa | z-score (per-dimension) → L2 normalize |
+| Chuẩn hóa | z-score → feature weights → L2 normalize |
 | Top-K | 5 |
 
 ## 2. Kịch bản 1 — File CÓ trong CSDL
@@ -25,17 +25,17 @@
 | Rank | File | Loài | Similarity | Distance |
 |---|---|---|---|---|
 | 1 | `cat_local_B_ANI01_MC_FN_SIM01_101.wav` | cat | **1.0000** | 0.0000 |
-| 2 | `cat_local_I_DAK01_MC_FN_SIM01_303.wav` | cat | 0.9714 | 0.0286 |
-| 3 | `cat_local_B_WHO01_MC_FI_SIM01_201.wav` | cat | 0.9655 | 0.0345 |
-| 4 | `cat_local_B_MAG01_EU_FN_FED01_301.wav` | cat | 0.9651 | 0.0349 |
-| 5 | `cat_local_B_CAN01_EU_FN_GIA01_105.wav` | cat | 0.9648 | 0.0352 |
+| 2 | `cat_local_I_DAK01_MC_FN_SIM01_303.wav` | cat | 0.9046 | 0.0954 |
+| 3 | `cat_local_B_CAN01_EU_FN_GIA01_105.wav` | cat | 0.8804 | 0.1196 |
+| 4 | `cat_local_F_SPI01_EU_MN_NAI01_201.wav` | cat | 0.8731 | 0.1269 |
+| 5 | `cat_local_B_WHO01_MC_FI_SIM01_201.wav` | cat | 0.8719 | 0.1281 |
 
 ### Phân tích
 
 - ✅ **Self-match xác nhận:** Rank 1 = chính file query, similarity = 1.0000 (perfect match)
 - ✅ **Precision@5 = 100%:** Tất cả 5 kết quả đều đúng loài cat
-- ✅ **Gradient rõ ràng:** Scores giảm dần đều (1.0 → 0.9714 → 0.9648)
-- Khoảng cách giữa self-match và rank 2 = 0.0286 → hệ thống phân biệt tốt
+- ✅ **Gradient rõ ràng:** Scores giảm dần đều (1.0 → 0.9046 → 0.8719)
+- Khoảng cách giữa self-match và rank 2 = 0.0954 → hệ thống phân biệt tốt
 
 ### Minh họa
 
@@ -59,16 +59,16 @@
 
 | Rank | File | Loài | Similarity | Distance |
 |---|---|---|---|---|
-| 1 | `cat_local_esc50_cat_1-47819-C-5.wav` | cat | 0.9644 | 0.0356 |
-| 2 | `hen_esc50_hen_4-200330-B-6.wav` | hen | 0.9638 | 0.0362 |
-| 3 | `sheep_local_esc50_sheep_4-196672-A-8.wav` | sheep | 0.9627 | 0.0373 |
-| 4 | `sheep_dynamicsuperb_private_sheep_4-196672-A-8.wav` | sheep | 0.9627 | 0.0373 |
-| 5 | `cat_local_esc50_cat_3-95698-A-5.wav` | cat | 0.9627 | 0.0373 |
+| 1 | `hen_esc50_hen_5-244315-B-6.wav` | hen | 0.8572 | 0.1428 |
+| 2 | `hen_esc50_hen_4-200330-B-6.wav` | hen | 0.8516 | 0.1484 |
+| 3 | `cat_local_esc50_cat_3-95698-A-5.wav` | cat | 0.8515 | 0.1485 |
+| 4 | `sheep_local_esc50_sheep_4-196672-A-8.wav` | sheep | 0.8496 | 0.1504 |
+| 5 | `sheep_dynamicsuperb_private_sheep_4-196672-A-8.wav` | sheep | 0.8496 | 0.1504 |
 
 ### Phân tích
 
 - ⚠️ **Top-1 không phải dog:** Noise injection đã thay đổi đặc trưng đủ nhiều khiến cosine distance thay đổi
-- ✅ **Scores phân tán hẹp:** Tất cả scores trong khoảng [0.962, 0.964] → file query nằm ở vùng "giữa" các clusters
+- ✅ **Scores phân tán hẹp:** Tất cả scores trong khoảng [0.8496, 0.8572] → file query nằm ở vùng "giữa" các clusters
 - ✅ **Không có file sim > 0.999:** Xác nhận file KHÔNG có trong DB (không self-match)
 - Hành vi hợp lý: Gaussian noise trên waveform ảnh hưởng mạnh đến Mel Spectrogram và MFCC, khiến vector feature dịch ra khỏi cluster dog gốc
 
@@ -89,7 +89,7 @@
 | Self-match detected | ✅ sim=1.0000 | ✅ Không self-match (đúng) |
 | Top-1 đúng loài | ✅ cat=cat | ⚠️ cat≠dog (noise effect) |
 | Precision@5 | 100% (5/5 cat) | N/A (query đã biến đổi) |
-| Score range | [0.965, 1.000] | [0.963, 0.964] |
+| Score range | [0.8719, 1.0000] | [0.8496, 0.8572] |
 | Schema đúng R-05.2 | ✅ | ✅ |
 | Sorted descending | ✅ | ✅ |
 | 0 ≤ score ≤ 1 | ✅ | ✅ |

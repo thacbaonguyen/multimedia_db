@@ -3,7 +3,7 @@ CSDLDPT - Core Search Engine
 Pure cosine similarity via Faiss IndexFlatIP.
 
 Pipeline:
-  Query audio → preprocess → feature 310D → z-score scale → L2-normalize → Faiss search → Top-K
+  Query audio → preprocess → feature 310D → z-score scale → feature weights → L2-normalize → Faiss search → Top-K
 
 Output schema R-05.2:
   rank, filepath, species, similarity_score, distance
@@ -22,8 +22,7 @@ import numpy as np
 class AnimalSoundSearchEngine:
     """
     Core search engine: z-score → L2-normalize → Faiss IndexFlatIP = Cosine Similarity.
-    
-    Đây là search mặc định (pure cosine). SVM hybrid là tùy chọn phụ trong search.py.
+    Đây là search mặc định (pure cosine similarity retrieval).
     """
 
     def __init__(self, dimension: int = 310):
