@@ -1,7 +1,0 @@
-indexed_at=2026-05-01T10:45:57.927156
-db_path=D:\CSDLDPT\src\..\database\animal_sounds_balanced8.db
-features_dir=D:\CSDLDPT\src\..\features_balanced8
-scaler_path=D:\CSDLDPT\src\..\features_balanced8\feature_scaler.npz
-processed_dir=D:\CSDLDPT\src\..\data\balanced8_processed
-total_files=1051
-species=8
