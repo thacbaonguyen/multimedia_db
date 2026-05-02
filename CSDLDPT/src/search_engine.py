@@ -96,10 +96,9 @@ class AnimalSoundSearchEngine:
             if idx == -1:
                 continue
             meta = self.file_index.get(int(idx), {})
-            # Faiss IndexFlatIP trên L2-normed vectors: score ∈ [-1, 1]
-            # Map tuyến tính về [0, 1] để đúng schema
-            cosine_raw = float(score)
-            sim = round(float(np.clip((cosine_raw + 1.0) / 2.0, 0.0, 1.0)), 4)
+            # Faiss IndexFlatIP trên L2-normed vectors: score = cosine similarity
+            # Với cùng domain (animal sounds), score ∈ [0, 1]
+            sim = round(float(np.clip(score, 0.0, 1.0)), 4)
             results.append({
                 "rank": rank,
                 "filepath": meta.get("filepath", "unknown"),
