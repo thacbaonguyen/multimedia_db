@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: csdldpt_postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME:-animal_sounds}
+      POSTGRES_USER: ${DB_USER:-csdldpt}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-csdldpt123}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-csdldpt} -d ${DB_NAME:-animal_sounds}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  pgdata:

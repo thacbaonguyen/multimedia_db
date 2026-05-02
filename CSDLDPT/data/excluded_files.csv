@@ -1,0 +1,10 @@
+filename,species,source,reason,decision,reviewer
+sounddino_village-birds-cicadas-lowing-cows.wav,Cow,sounddino,"Multi-species: title mentions birds + cicadas + cows",excluded,audit
+sounddino_nature-birds-lowing-cows-in-the-pasture.wav,Cow,sounddino,"Multi-species: title mentions birds + cows",excluded,audit
+sounddino_village-birds-cows-goats-chickens-in-the-distance.wav,Cow,sounddino,"Multi-species: title mentions birds + cows + goats + chickens",excluded,audit
+sounddino_on-the-farm-roosters-cows-birds-in-the-background.wav,Cow,sounddino,"Multi-species: title mentions roosters + cows + birds",excluded,audit
+sounddino_the-sound-of-a-cow-being-milked.wav,Cow,sounddino,"Non-vocalization: milking mechanical sound not cow voice",excluded,audit
+sounddino_milking-a-cow-against-the-background-of-mooing.wav,Cow,sounddino,"Mixed: milking noise foreground with mooing background",excluded,audit
+sounddino_learn-to-name-a-cow.wav,Cow,sounddino,"Possibly contains human narration mixed with cow sounds",excluded,audit
+sounddino_cows-on-the-farm.wav,Cow,sounddino,"Ambiguous: farm ambience may include multiple animal species",excluded,audit
+sounddino_a-large-flock-of-sheep-is-led-to-pasture.wav,Sheep,sounddino,"Background noise: herding sounds mixed with bleating",excluded,audit
