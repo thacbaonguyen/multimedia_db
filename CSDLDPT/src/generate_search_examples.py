@@ -109,12 +109,15 @@ def generate_scenario(
     feature_db = np.load(os.path.join(FEATURES_DIR, 'feature_db.npy'))
     scaler = np.load(os.path.join(FEATURES_DIR, 'feature_scaler.npz'))
     mean, std = scaler['mean'], scaler['std']
+    weights = scaler['weights'] if 'weights' in scaler else np.ones(feature_db.shape[1], dtype=np.float32)
     safe_std = np.where(std < 1e-8, 1.0, std)
 
-    # Scale query + DB
+    # Scale + weight query and DB exactly like search_engine/build_canonical
     q_scaled = ((query_vec - mean) / safe_std).astype(np.float32)
+    q_scaled *= weights
     q_norm = q_scaled / (np.linalg.norm(q_scaled) + 1e-8)
     db_scaled = ((feature_db - mean) / safe_std).astype(np.float32)
+    db_scaled *= weights
     db_norms = np.linalg.norm(db_scaled, axis=1, keepdims=True)
     db_norms = np.where(db_norms < 1e-8, 1.0, db_norms)
     db_normed = db_scaled / db_norms
@@ -131,7 +134,7 @@ def generate_scenario(
         for rank, idx in enumerate(sorted_indices, 1):
             meta = file_index.get(int(idx), {})
             cos_val = float(cosines[idx])
-            sim = round(float(np.clip((cos_val + 1) / 2, 0, 1)), 6)
+            sim = round(float(np.clip(cos_val, 0, 1)), 6)
             writer.writerow([
                 rank,
                 meta.get('filename', 'unknown'),

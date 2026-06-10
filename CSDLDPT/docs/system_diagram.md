@@ -35,6 +35,7 @@ graph TB
 
     subgraph Search["🔍 Search Engine"]
         ZSCORE["z-score normalize<br>(query vector)"]
+        FWEIGHT["feature weights<br>MFCC×3, Mel×1, Chroma×2,<br>Centroid×2, ZCR×2"]
         L2NORM["L2 normalize"]
         COSINE["Faiss IndexFlatIP<br>= Cosine Similarity"]
         TOP5["Top-5 Results<br>rank, filepath, species,<br>similarity_score, distance"]
@@ -68,7 +69,7 @@ graph TB
 
     CONCAT -->|"Query"| ZSCORE
     SCALER -.->|"load scaler"| ZSCORE
-    ZSCORE --> L2NORM --> COSINE
+    ZSCORE --> FWEIGHT --> L2NORM --> COSINE
     FAISS -.->|"load index"| COSINE
     FINDEX -.->|"load metadata"| TOP5
     COSINE --> TOP5
@@ -100,6 +101,7 @@ sequenceDiagram
     U->>BC: python build_canonical.py
     BC->>DB: load_all_vectors() → (1042, 310)
     BC->>BC: fit z-score scaler
+    BC->>BC: apply feature weights
     BC->>BC: L2 normalize
     BC->>FS: IndexFlatIP.add(scaled_vectors)
     BC-->>FS: write faiss.index
@@ -123,6 +125,7 @@ sequenceDiagram
     PP->>FE: extract_all(y) → 310D
     FE->>SE: engine.search(query_vec, top_k=5)
     SE->>SE: z-score scale (dùng DB scaler)
+    SE->>SE: apply feature weights
     SE->>SE: L2 normalize
     SE->>FS: index.search(q, k=5)
     FS-->>SE: scores, indices
@@ -160,7 +163,7 @@ search_log     : id, query_file, top1_result, top1_score, searched_at
 
 ```
 features/feature_db.npy       — (1042, 310) float32
-features/feature_scaler.npz   — mean (310,), std (310,)
+features/feature_scaler.npz   — mean (310,), std (310,), weights (310,)
 features/faiss.index           — Faiss IndexFlatIP, 1042 vectors
 features/file_index.json       — {idx: {file_id, filepath, species, ...}}
 ```

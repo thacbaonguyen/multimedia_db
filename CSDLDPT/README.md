@@ -36,6 +36,7 @@ python -c "from src.database import check_connection; check_connection(); print(
 ```bash
 python src/index_balanced8.py      # Preprocess + Index → PostgreSQL
 python src/build_canonical.py      # Faiss + scaler + file_index
+python src/evaluate_feature_space.py  # Retrieval metrics + ablation
 ```
 
 ### 5. Chạy Demo
@@ -77,6 +78,7 @@ CSDLDPT/
 │   ├── build_canonical.py      # Build Faiss + artifacts
 │   ├── build_metadata.py       # Build metadata.csv
 │   ├── index_balanced8.py      # Full indexing pipeline
+│   ├── evaluate_feature_space.py  # Retrieval metrics + ablation
 │   ├── visualization.py        # Plot functions
 │   ├── generate_search_examples.py  # Intermediate results
 │   └── exceptions.py           # Custom exceptions

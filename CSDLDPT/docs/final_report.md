@@ -148,7 +148,7 @@ Chi tiết: `docs/system_diagram.md`
 
 Kiến trúc 3 tầng:
 1. **Storage:** PostgreSQL (metadata) + NumPy .npy (vectors) + Faiss (index)
-2. **Processing:** Preprocessing → Feature extraction → z-score → L2-norm
+2. **Processing:** Preprocessing → Feature extraction → z-score → feature weights → L2-norm
 3. **Search:** Faiss IndexFlatIP (= Cosine Similarity) → Top-5
 
 ### 4.2 Cơ sở dữ liệu
@@ -167,6 +167,8 @@ feature_db.npy (1042 × 310)
         ↓
 z-score normalize (fit trên toàn DB)
         ↓
+feature weights (MFCC×3, Mel×1, Chroma×2, Centroid×2, ZCR×2)
+        ↓
 L2 normalize
         ↓
 Faiss IndexFlatIP (Inner Product = Cosine trên L2-normed vectors)
@@ -178,9 +180,10 @@ Faiss IndexFlatIP (Inner Product = Cosine trên L2-normed vectors)
 Query audio → preprocess (cùng pipeline với indexing)
            → extract 310D vector
            → z-score (dùng scaler đã fit)
+           → apply feature weights
            → L2 normalize
            → Faiss search (top-5)
-           → map scores: similarity = clip((cosine + 1) / 2, 0, 1)
+           → scores: similarity = clip(cosine, 0, 1)
            → output: {rank, filepath, species, similarity_score, distance}
 ```
 
@@ -192,8 +195,8 @@ Query audio → preprocess (cùng pipeline với indexing)
     "rank": 1,
     "filepath": "data/processed/cat_local_xxx.wav",
     "species": "cat",
-    "similarity_score": 0.9714,
-    "distance": 0.0286
+    "similarity_score": 0.9046,
+    "distance": 0.0954
   }
 ]
 ```
@@ -244,7 +247,7 @@ Minh họa waveform, Mel spectrogram, MFCC cho 4 loài (cat, dog, frog, cow):
 #### Kịch bản 2: File KHÔNG trong CSDL
 
 - Query: `query_external_dog.wav` (dog + noise)
-- **Kết quả:** Top-5 scores trong [0.962, 0.964], không có self-match
+- **Kết quả:** Top-5 scores trong [0.8496, 0.8572], không có self-match
 - Xác nhận hệ thống không false positive
 
 Chi tiết: `docs/search_results_report.md`
@@ -252,10 +255,10 @@ Chi tiết: `docs/search_results_report.md`
 ### 6.3 Unit Tests
 
 ```
-39 passed in 2.52s
+42 passed in 3.54s
 ├── test_preprocessing.py      (11 tests)
 ├── test_feature_extraction.py (17 tests)
-└── test_search_engine.py      (11 tests)
+└── test_search_engine.py      (14 tests)
 ```
 
 ---
@@ -267,8 +270,9 @@ Chi tiết: `docs/search_results_report.md`
 - ✅ Thu thập **1042 files** tiếng kêu **8 loài** động vật (> 500 yêu cầu)
 - ✅ Vector đặc trưng **310D** với 5 nhóm feature bổ sung lẫn nhau
 - ✅ Hệ thống tìm kiếm **Pure Cosine Similarity** qua Faiss, self-match = 1.0
+- ✅ Feature-space evaluation: Top-1 cùng loài 90.31%, Precision@5 73.01%
 - ✅ Demo UI hoàn chỉnh với audio players và visualization
-- ✅ **39/39 tests** passed, documentation đầy đủ
+- ✅ **42/42 tests** passed, documentation đầy đủ
 - ✅ PostgreSQL cho metadata, reproducible pipeline
 
 ### 7.2 Hạn chế
@@ -347,6 +351,7 @@ python -m pytest tests/ -v
 | Tài liệu | Đường dẫn |
 |---|---|
 | Giải trình đặc trưng | `docs/feature_justification.md` |
+| Đánh giá feature space | `docs/feature_space_evaluation.md` |
 | Sơ đồ hệ thống | `docs/system_diagram.md` |
 | Kết quả tìm kiếm | `docs/search_results_report.md` |
 | Data audit | `docs/data_audit.md` |
