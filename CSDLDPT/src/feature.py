@@ -14,6 +14,133 @@ HOP_LENGTH  = 512
 N_FFT       = 2048
 FEATURE_DIM = 310
 
+
+def _frame_signal_manual(
+    y: np.ndarray,
+    frame_length: int = N_FFT,
+    hop_length: int = HOP_LENGTH,
+    center: bool = True,
+) -> np.ndarray:
+    """Chia waveform thành các frame chồng lấn bằng NumPy."""
+    y = np.asarray(y, dtype=np.float32)
+    if center:
+        pad = frame_length // 2
+        y = np.pad(y, (pad, pad), mode='constant')
+
+    if y.size < frame_length:
+        y = np.pad(y, (0, frame_length - y.size), mode='constant')
+
+    n_frames = 1 + (y.size - frame_length) // hop_length
+    if n_frames <= 0:
+        return np.zeros((1, frame_length), dtype=np.float32)
+
+    shape = (n_frames, frame_length)
+    strides = (y.strides[0] * hop_length, y.strides[0])
+    frames = np.lib.stride_tricks.as_strided(y, shape=shape, strides=strides)
+    return frames.copy().astype(np.float32)
+
+
+def _stft_power_manual(
+    y: np.ndarray,
+    sr: int = SAMPLE_RATE,
+    n_fft: int = N_FFT,
+    hop_length: int = HOP_LENGTH,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Tự tính STFT power: frame -> Hann window -> rFFT -> |X|^2."""
+    frames = _frame_signal_manual(y, frame_length=n_fft, hop_length=hop_length, center=True)
+    window = np.hanning(n_fft).astype(np.float32)
+    windowed = frames * window
+    spectrum = np.fft.rfft(windowed, n=n_fft, axis=1)
+    magnitude = np.abs(spectrum).astype(np.float32)
+    power = (magnitude ** 2).astype(np.float32)
+    freqs = np.fft.rfftfreq(n_fft, d=1.0 / sr).astype(np.float32)
+    return power, magnitude, freqs
+
+
+def _hz_to_mel_manual(hz: np.ndarray | float) -> np.ndarray | float:
+    """Chuyển Hz sang thang Mel theo công thức HTK."""
+    return 2595.0 * np.log10(1.0 + np.asarray(hz) / 700.0)
+
+
+def _mel_to_hz_manual(mel: np.ndarray | float) -> np.ndarray | float:
+    """Chuyển Mel về Hz theo công thức HTK."""
+    return 700.0 * (10.0 ** (np.asarray(mel) / 2595.0) - 1.0)
+
+
+def _mel_filter_bank_manual(
+    sr: int = SAMPLE_RATE,
+    n_fft: int = N_FFT,
+    n_mels: int = N_MELS,
+) -> np.ndarray:
+    """Tạo Mel filter bank tam giác shape (n_mels, n_fft//2 + 1)."""
+    n_freqs = n_fft // 2 + 1
+    min_mel = _hz_to_mel_manual(0.0)
+    max_mel = _hz_to_mel_manual(sr / 2.0)
+    mel_points = np.linspace(min_mel, max_mel, n_mels + 2)
+    hz_points = _mel_to_hz_manual(mel_points)
+    bin_points = np.floor((n_fft + 1) * hz_points / sr).astype(int)
+    bin_points = np.clip(bin_points, 0, n_freqs - 1)
+
+    filters = np.zeros((n_mels, n_freqs), dtype=np.float32)
+    for i in range(n_mels):
+        left, center, right = bin_points[i], bin_points[i + 1], bin_points[i + 2]
+
+        if center > left:
+            filters[i, left:center] = (
+                np.arange(left, center, dtype=np.float32) - left
+            ) / (center - left)
+        if right > center:
+            filters[i, center:right] = (
+                right - np.arange(center, right, dtype=np.float32)
+            ) / (right - center)
+
+    return filters
+
+
+def _power_to_db_manual(power: np.ndarray, amin: float = 1e-10) -> np.ndarray:
+    """Đổi power spectrogram sang dB theo ref=max(power)."""
+    power = np.maximum(power, amin)
+    ref = max(float(np.max(power)), amin)
+    return (10.0 * np.log10(power / ref)).astype(np.float32)
+
+
+def extract_zcr_manual(y: np.ndarray) -> np.ndarray:
+    """Tự tính ZCR: tỷ lệ số lần tín hiệu đổi dấu trong từng frame."""
+    frames = _frame_signal_manual(y, frame_length=N_FFT, hop_length=HOP_LENGTH, center=True)
+    signs = np.signbit(frames)
+    crossings = np.count_nonzero(signs[:, 1:] != signs[:, :-1], axis=1)
+    zcr = crossings.astype(np.float32) / max(N_FFT - 1, 1)
+    return np.array([zcr.mean(), zcr.std()], dtype=np.float32)
+
+
+def extract_spectral_centroid_manual(y: np.ndarray, sr: int = SAMPLE_RATE) -> np.ndarray:
+    """Tự tính Spectral Centroid: trọng tâm phổ tần số của từng frame."""
+    _, magnitude, freqs = _stft_power_manual(y, sr=sr)
+    denom = magnitude.sum(axis=1)
+    numer = (magnitude * freqs.reshape(1, -1)).sum(axis=1)
+    centroid = np.divide(
+        numer,
+        denom,
+        out=np.zeros_like(numer, dtype=np.float32),
+        where=denom > 1e-10,
+    )
+    return np.array([centroid.mean(), centroid.std()], dtype=np.float32)
+
+
+def extract_mel_spectrogram_manual(
+    y: np.ndarray,
+    sr: int = SAMPLE_RATE,
+    n_mels: int = N_MELS,
+) -> np.ndarray:
+    """Tự tính Mel Spectrogram 256D: Mel power -> dB -> mean/std."""
+    power, _, _ = _stft_power_manual(y, sr=sr)
+    mel_filters = _mel_filter_bank_manual(sr=sr, n_fft=N_FFT, n_mels=n_mels)
+    mel_power = mel_filters @ power.T
+    mel_db = _power_to_db_manual(mel_power)
+    feats = np.concatenate([mel_db.mean(axis=1), mel_db.std(axis=1)])
+    return feats.astype(np.float32)
+
+
 # âm sắc
 def extract_mfcc(y: np.ndarray, sr: int = SAMPLE_RATE, n_mfcc: int = N_MFCC) -> np.ndarray:
     mfcc = librosa.feature.mfcc(
