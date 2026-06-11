@@ -1,7 +1,3 @@
-"""
-CSDLDPT - Tạo data/metadata.csv từ data/processed/
-Schema: file_id, filename, species, filepath, duration_sec, sample_rate, source
-"""
 
 from __future__ import annotations
 
@@ -42,7 +38,6 @@ def load_source_map(meta_path: str = BALANCED8_META) -> dict[str, str]:
 
 
 def detect_source_from_filename(filename: str) -> str:
-    """Suy đoán source từ tên file nếu metadata gốc không có."""
     name_lower = filename.lower()
     if 'esc50' in name_lower or name_lower.startswith(('1-', '2-', '3-', '4-', '5-')):
         return 'esc50'

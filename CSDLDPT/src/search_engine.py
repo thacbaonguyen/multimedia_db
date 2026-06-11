@@ -1,13 +1,3 @@
-"""
-CSDLDPT - Core Search Engine
-Pure cosine similarity via Faiss IndexFlatIP.
-
-Pipeline:
-  Query audio → preprocess → feature 310D → z-score scale → feature weights → L2-normalize → Faiss search → Top-K
-
-Output schema R-05.2:
-  rank, filepath, species, similarity_score, distance
-"""
 
 from __future__ import annotations
 
@@ -20,11 +10,6 @@ import numpy as np
 
 
 class AnimalSoundSearchEngine:
-    """
-    Core search engine: z-score → L2-normalize → Faiss IndexFlatIP = Cosine Similarity.
-    Đây là search mặc định (pure cosine similarity retrieval).
-    """
-
     def __init__(self, dimension: int = 310):
         self.dimension = dimension
         self.index: Optional[faiss.Index] = None
@@ -55,10 +40,6 @@ class AnimalSoundSearchEngine:
         return self._loaded and self.index is not None
 
     def _prepare_query(self, query_vector: np.ndarray) -> np.ndarray:
-        """
-        z-score scale → apply weights → L2 normalize.
-        Dùng cùng scaler + weights đã fit trên database để đảm bảo consistency.
-        """
         assert self.scaler_mean is not None and self.scaler_std is not None
         safe_std = np.where(self.scaler_std < 1e-8, 1.0, self.scaler_std)
         q = ((query_vector - self.scaler_mean) / safe_std).reshape(1, -1).astype(np.float32)
@@ -68,21 +49,6 @@ class AnimalSoundSearchEngine:
         return q
 
     def search(self, query_vector: np.ndarray, top_k: int = 5) -> list[dict]:
-        """
-        Pure cosine similarity search.
-
-        Args:
-            query_vector: vector 310D (raw, chưa scale)
-            top_k: số kết quả trả về
-
-        Returns:
-            List[dict] đúng schema R-05.2:
-              - rank: int (1-indexed)
-              - filepath: str (relative path)
-              - species: str
-              - similarity_score: float (0..1)
-              - distance: float (0..1)
-        """
         assert self.is_loaded(), "Engine chưa load. Gọi load() trước."
         assert query_vector.shape == (self.dimension,), \
             f"Expected ({self.dimension},), got {query_vector.shape}"

@@ -1,9 +1,3 @@
-"""
-CSDLDPT - Index the balanced 8-class dataset.
-
-Pipeline: Preprocess → Feature 310D → PostgreSQL + .npy → Metadata CSV → Canonical Artifacts
-"""
-
 from __future__ import annotations
 
 import os
@@ -34,7 +28,6 @@ EXCLUDED_CSV  = os.path.join(PROJECT_ROOT, 'data', 'excluded_files.csv')
 
 
 def detect_source(filename: str) -> str:
-    """Suy đoán source từ tên file."""
     name = filename.lower()
     if 'esc50' in name or any(name.startswith(f'{d}-') for d in '12345'):
         return 'esc50'
@@ -51,33 +44,24 @@ def detect_source(filename: str) -> str:
 
 def run(verbose: bool = True):
     t_start = time.time()
-    print("=" * 60)
-    print("  CSDLDPT — Balanced8 Index (PostgreSQL + 310D + Faiss)")
-    print("=" * 60)
 
-    # 0. Check PostgreSQL
-    print("\n[0/5] Kiểm tra PostgreSQL...")
+    print("\n[0/5] check postgresql")
     try:
         check_connection()
-        print("  ✓ PostgreSQL OK")
+        print("PostgreSQL OK")
     except Exception as e:
-        print(f"  ✗ PostgreSQL lỗi: {e}")
-        print("  → Chạy: cp .env.example .env && docker compose up -d")
+        print(f"PostgreSQL lỗi: {e}")
         return
 
-    # 1. Preprocess
-    print("\n[1/5] Preprocess (trim + zero-pad + normalize)...")
+    # Preprocess, trim + zeropad, normalize
     records = preprocess_all(RAW_DIR, PROCESSED_DIR, EXCLUDED_CSV, verbose=False)
     print(f"  ✓ {len(records)} files processed (excluded files skipped)")
 
-    # 2. Init DB + Truncate old data
-    print("\n[2/5] Reset PostgreSQL database...")
+    # init truncate db
     init_db()
     truncate_all()
-    print("  ✓ Tables truncated, ready for fresh insert")
 
-    # 3. Extract features + Insert
-    print(f"\n[3/5] Extract 310D features and index {len(records)} files...")
+    # extract feature
     excluded = load_excluded_filenames(EXCLUDED_CSV)
     species_counters: dict[str, int] = {}
     ok, fail = 0, 0
@@ -93,7 +77,7 @@ def run(verbose: bool = True):
         fpath = os.path.join(PROCESSED_DIR, fname)
 
         try:
-            # Feature extraction with preprocessing pipeline
+            # extract file
             vec = extract_from_file(fpath, preprocess=True)
             assert vec.shape == (FEATURE_DIM,), f"Expected {FEATURE_DIM}D, got {vec.shape}"
 
@@ -129,31 +113,21 @@ def run(verbose: bool = True):
             pct = (i + 1) / len(records) * 100
             print(f"  [{i + 1:>4}/{len(records)}] {pct:.0f}% — OK: {ok}, ERR: {fail}")
 
-    print(f"  ✓ Indexed: {ok}, errors: {fail}")
+    print(f"  indexed: {ok}, errors: {fail}")
 
-    # 4. Update species stats
-    print("\n[4/5] Update species statistics...")
+    # Update species stats
     update_species_stats()
     stats = get_db_stats()
-    print(f"  ✓ {stats['total_files']} files, {stats['n_species']} species")
     if stats['species_list']:
         for sp, cnt in stats['species_list']:
             print(f"    {sp:<12s}: {cnt} files")
 
-    # 5. Build metadata CSV
-    print("\n[5/5] Build data/metadata.csv...")
+    # build metadata CSV
     from build_metadata import build_metadata
     build_metadata(verbose=verbose)
 
     elapsed = time.time() - t_start
-    print(f"\n{'=' * 60}")
-    print(f"  DONE in {elapsed:.1f}s")
-    print(f"  Total indexed: {ok} files")
-    print(f"  Feature dim  : {FEATURE_DIM}D")
-    print(f"  Database     : PostgreSQL")
-    print(f"{'=' * 60}")
-    print(f"\n  → Tiếp theo: python src/build_canonical.py")
-    print(f"  → Đánh giá: python src/evaluate_feature_space.py")
+    print(f"okE in {elapsed:.1f}s")
 
 
 if __name__ == "__main__":

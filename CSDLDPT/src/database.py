@@ -1,8 +1,3 @@
-"""
-CSDLDPT - Module Quản Lý Cơ Sở Dữ Liệu
-PostgreSQL lưu metadata + numpy binary lưu vector đặc trưng + Faiss cho search
-"""
-
 from __future__ import annotations
 
 import os
@@ -36,13 +31,8 @@ SAMPLE_RATE  = 22050
 FEATURE_DIM  = 310
 
 
-# ─────────────────────────────────────────────
-# Connection Management
-# ─────────────────────────────────────────────
-
 @contextmanager
 def get_connection() -> Generator:
-    """Context manager cho PostgreSQL connection."""
     conn = psycopg2.connect(**DB_CONFIG)
     try:
         yield conn
@@ -51,19 +41,13 @@ def get_connection() -> Generator:
 
 
 def check_connection() -> None:
-    """Kiểm tra PostgreSQL sẵn sàng cho pipeline/demo."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT 1")
             cur.fetchone()
 
 
-# ─────────────────────────────────────────────
-# Khởi tạo CSDL
-# ─────────────────────────────────────────────
-
 def init_db() -> None:
-    """Tạo tables nếu chưa có (backup cho scripts/init.sql)."""
     with get_connection() as conn:
         cur = conn.cursor()
 
@@ -111,10 +95,6 @@ def init_db() -> None:
     print("CSDL PostgreSQL khởi tạo thành công.")
 
 
-# ─────────────────────────────────────────────
-# Thêm / đọc dữ liệu
-# ─────────────────────────────────────────────
-
 def insert_record(
     file_id: str,
     filename: str,
@@ -129,7 +109,6 @@ def insert_record(
     """Thêm 1 file vào CSDL: metadata vào PostgreSQL + vector vào .npy"""
     os.makedirs(features_dir, exist_ok=True)
 
-    # Lưu vector đặc trưng ra file .npy
     feat_name = filename.replace('.wav', '.npy')
     feat_path = os.path.join(features_dir, feat_name)
     np.save(feat_path, feature_vec.astype(np.float32))
@@ -157,7 +136,6 @@ def insert_record(
 
 
 def get_all_records() -> list[tuple]:
-    """Lấy toàn bộ metadata từ CSDL (chỉ quality='kept')."""
     with get_connection() as conn:
         cur = conn.cursor()
         cur.execute("""
@@ -171,7 +149,6 @@ def get_all_records() -> list[tuple]:
 
 
 def truncate_all() -> None:
-    """Reset toàn bộ dữ liệu trong DB (dùng khi rebuild)."""
     with get_connection() as conn:
         cur = conn.cursor()
         cur.execute("""
@@ -182,9 +159,6 @@ def truncate_all() -> None:
     print("Đã xóa sạch dữ liệu trong DB.")
 
 
-# ─────────────────────────────────────────────
-# Feature vector operations
-# ─────────────────────────────────────────────
 
 def save_feature_scaler(
     matrix: np.ndarray,
@@ -264,10 +238,6 @@ def load_all_vectors(
         matrix = apply_feature_scaler(matrix, mean, std, weights).astype(np.float32)
     return ids, filenames, species_list, matrix
 
-
-# ─────────────────────────────────────────────
-# Statistics & Logging
-# ─────────────────────────────────────────────
 
 def update_species_stats() -> None:
     """Cập nhật bảng thống kê loài."""

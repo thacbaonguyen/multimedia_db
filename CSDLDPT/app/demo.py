@@ -33,17 +33,11 @@ from visualization import save_waveform, save_mel_spectrogram
 FEATURES_DIR  = os.path.join(PROJECT_ROOT, 'features')
 PROCESSED_DIR = os.path.join(PROJECT_ROOT, 'data', 'balanced8_processed')
 
-# Load engine 1 lần khi start
 engine = create_engine(FEATURES_DIR)
 
-# ─────────────────────────────────────────────
-# Core search function
-# ─────────────────────────────────────────────
-
 def do_search(audio_path):
-    """Xử lý query audio → trả về kết quả search."""
     if audio_path is None:
-        return ("⚠️ Vui lòng upload hoặc thu âm.",
+        return ("Vui lòng upload hoặc thu âm.",
                 None, None, None, None, None, None, None, None, None, None, None, None)
 
     # 1. Preprocess + extract features

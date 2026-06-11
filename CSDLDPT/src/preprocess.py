@@ -1,10 +1,3 @@
-"""
-CSDLDPT - Module Tiền Xử Lý Âm Thanh
-Chuẩn hóa tất cả file âm thanh: sample rate, độ dài, biên độ.
-
-Pipeline: load → trim silence → truncate/zero-pad → normalize amplitude → save
-"""
-
 from __future__ import annotations
 
 import csv
@@ -20,9 +13,8 @@ from exceptions import AudioFileNotFoundError, AudioFormatError, AudioProcessing
 
 logger = logging.getLogger(__name__)
 
-# Tham số chuẩn hóa toàn cục
-SAMPLE_RATE = 22050      # Hz - chuẩn cho audio ML
-DURATION    = 2.0        # giây - độ dài chuẩn mỗi clip
+SAMPLE_RATE = 22050      # Hz
+DURATION    = 2.0        # giây 
 N_SAMPLES   = int(SAMPLE_RATE * DURATION)
 
 VALID_AUDIO_EXTS = {'.wav', '.mp3', '.flac', '.ogg'}
@@ -33,11 +25,6 @@ EXCLUDED_CSV  = os.path.join(os.path.dirname(__file__), '..', 'data', 'excluded_
 
 
 def load_excluded_filenames(csv_path: str = EXCLUDED_CSV) -> set[str]:
-    """
-    Đọc danh sách file bị exclude từ data/excluded_files.csv.
-    Trả về set các filename có decision='excluded'.
-    Match cả raw filename (sounddino_x.wav) và processed filename (cow_sounddino_x.wav).
-    """
     excluded: set[str] = set()
     if not os.path.exists(csv_path):
         return excluded
@@ -55,10 +42,6 @@ def load_excluded_filenames(csv_path: str = EXCLUDED_CSV) -> set[str]:
 
 
 def load_audio(path: str, target_sr: int = SAMPLE_RATE) -> tuple[np.ndarray, int]:
-    """
-    Đọc file audio, chuyển về mono + resample.
-    Raises AudioFileNotFoundError, AudioFormatError, AudioProcessingError.
-    """
     if not os.path.exists(path):
         raise AudioFileNotFoundError(f"Không tìm thấy: {path}")
     ext = os.path.splitext(path)[1].lower()
@@ -72,30 +55,23 @@ def load_audio(path: str, target_sr: int = SAMPLE_RATE) -> tuple[np.ndarray, int
 
 
 def normalize_length(y: np.ndarray, n_samples: int = N_SAMPLES) -> np.ndarray:
-    """
-    Trim silence → truncate hoặc ZERO-PAD (không tile).
-    - Nếu dài hơn: lấy đoạn giữa
-    - Nếu ngắn hơn: zero-pad cuối
-    - Nếu toàn silence sau trim: trả về zeros + warning
-    """
-    # Trim silence trước (S-01)
+    # Trim
     y_trimmed, _ = librosa.effects.trim(y, top_db=20)
 
     if len(y_trimmed) == 0:
-        logger.warning("Audio toàn silence sau trim, trả về zeros")
+        logger.warning("full silient, return zẻro")
         return np.zeros(n_samples, dtype=np.float32)
 
     if len(y_trimmed) >= n_samples:
-        # Truncate: lấy đoạn giữa
+        # lấy đoạn giữa
         start = (len(y_trimmed) - n_samples) // 2
         return y_trimmed[start:start + n_samples]
 
-    # Zero-pad cuối (KHÔNG tile/repeat)
+    # Zero-pad đầu cuối
     return np.pad(y_trimmed, (0, n_samples - len(y_trimmed)), mode='constant')
 
 
 def normalize_amplitude(y: np.ndarray, target_db: float = -20.0) -> np.ndarray:
-    """Chuẩn hóa biên độ về mức dB cố định (RMS normalization)."""
     rms = np.sqrt(np.mean(y ** 2))
     if rms < 1e-8:
         return y
@@ -104,12 +80,6 @@ def normalize_amplitude(y: np.ndarray, target_db: float = -20.0) -> np.ndarray:
 
 
 def preprocess_audio_for_features(path: str, target_sr: int = SAMPLE_RATE) -> tuple[np.ndarray, int]:
-    """
-    Pipeline chuẩn hóa đầy đủ cho cả indexing và query.
-    Đảm bảo query audio đi qua cùng pipeline như database audio.
-
-    Returns: (y_processed, sr)
-    """
     y, sr = load_audio(path, target_sr)
     y = normalize_length(y)
     y = normalize_amplitude(y)
@@ -117,19 +87,17 @@ def preprocess_audio_for_features(path: str, target_sr: int = SAMPLE_RATE) -> tu
 
 
 def preprocess_file(src_path: str, dst_path: str) -> str:
-    """Xử lý 1 file: load → trim → pad → normalize → save."""
     y, sr = preprocess_audio_for_features(src_path)
     sf.write(dst_path, y, SAMPLE_RATE)
     return dst_path
 
-
+# preprocess raw
 def preprocess_all(
     raw_dir: str = RAW_DIR,
     processed_dir: str = PROCESSED_DIR,
     excluded_csv: str = EXCLUDED_CSV,
     verbose: bool = True,
 ) -> list[dict[str, str]]:
-    """Tiền xử lý toàn bộ thư mục raw → processed, skip excluded files."""
     os.makedirs(processed_dir, exist_ok=True)
 
     excluded = load_excluded_filenames(excluded_csv)
@@ -177,12 +145,11 @@ def preprocess_all(
             print(f"  [{i+1}/{len(files_to_process)}] đã xử lý...")
 
     if verbose:
-        print(f"Hoàn thành: {len(results)} files → {processed_dir}")
+        print(f"okokok: {len(results)} files → {processed_dir}")
     return results
 
 
 if __name__ == '__main__':
-    print("=== Tiền xử lý dữ liệu âm thanh ===")
     records = preprocess_all(verbose=True)
     species = set(r['species'] for r in records)
     print(f"Số loài: {len(species)} | Tổng files: {len(records)}")
