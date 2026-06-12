@@ -97,29 +97,12 @@ class AnimalSoundSearchEngine:
         return results
 
     def search(self, query_vector: np.ndarray, top_k: int = 5) -> list[dict]:
-        assert self.is_loaded(), "Engine chưa load. Gọi load() trước."
-        assert query_vector.shape == (self.dimension,), \
-            f"Expected ({self.dimension},), got {query_vector.shape}"
-
         q = self._prepare_query(query_vector)
         scores, indices = self.index.search(q, top_k)
 
         return self._format_results(scores[0], indices[0])
 
     def search_numpy_cosine(self, query_vector: np.ndarray, top_k: int = 5) -> list[dict]:
-        """
-        Search cosine thuần bằng NumPy, không dùng Faiss.
-
-        Dùng cùng feature_db.npy + mean/std/weights như Faiss:
-        database vectors và query đều được scale, weight, L2-normalize,
-        sau đó tính scores = db_norm @ q.
-        """
-        assert self._loaded, "Engine chưa load. Gọi load() trước."
-        assert self.feature_db_norm is not None, \
-            "Chưa load feature_db.npy. Gọi load(..., feature_db_path=...) trước."
-        assert query_vector.shape == (self.dimension,), \
-            f"Expected ({self.dimension},), got {query_vector.shape}"
-
         q = self._prepare_query_numpy(query_vector)
         scores = self.feature_db_norm @ q
         k = min(top_k, scores.shape[0])
@@ -131,11 +114,9 @@ class AnimalSoundSearchEngine:
         return self._format_results(scores[top_indices], top_indices)
 
     def get_total_files(self) -> int:
-        """Số lượng files trong index."""
         return self.index.ntotal if self.index else 0
 
     def get_species_list(self) -> list[str]:
-        """Danh sách loài unique trong index."""
         return sorted(set(
             meta.get("species", "unknown")
             for meta in self.file_index.values()
@@ -143,10 +124,6 @@ class AnimalSoundSearchEngine:
 
 
 def create_engine(features_dir: str = None) -> AnimalSoundSearchEngine:
-    """
-    Factory function: tạo và load engine từ features/ directory.
-    Tiện dùng cho demo/tests.
-    """
     if features_dir is None:
         features_dir = os.path.join(os.path.dirname(__file__), '..', 'features')
 
